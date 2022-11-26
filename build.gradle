@@ -22,7 +22,8 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'com.squareup.okhttp3:okhttp:4.10.0'
-	implementation 'com.squareup.moshi:moshi:1.9.1'
+	implementation 'com.squareup.moshi:moshi:1.14.0'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
