@@ -21,7 +21,7 @@ public class HttpClient
     private static final Moshi MOSHI = new Moshi.Builder().build();
     private final OkHttpClient client = new OkHttpClient();
 
-    public <T> CompletableFuture<T> get(String url, Map<String, String> headers, Type responseType) {
+    public <T> CompletableFuture<HttpResponse<T>> get(String url, Map<String, String> headers, Type responseType) {
         var requestBuilder = new Request.Builder()
             .url(BASE_URL + url);
 
@@ -67,7 +67,7 @@ public class HttpClient
         return callback.getFuture();
     }
 
-    private <T> CompletableFuture<T> performCall(Call call, Type responseType) {
+    private <T> CompletableFuture<HttpResponse<T>> performCall(Call call, Type responseType) {
         var callback = new TypeFutureCallback<T>(responseType);
 
         call.enqueue(callback);

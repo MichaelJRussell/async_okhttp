@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Component
@@ -52,8 +53,8 @@ public class TestService
         CompletableFuture.allOf(userInfoFuture, ownerFuture)
             .get();
 
-        var userInfo = userInfoFuture.get();
-        var owner = ownerFuture.get();
+        var userInfo = processResponse(userInfoFuture.get());
+        var owner = processResponse(ownerFuture.get()).get(0);
         var destination = createDestination(owner.getId(), contentJsonHeaders).get();
         var animal = createAnimal(owner.getId(), contentJsonHeaders).get();
         var cviRequest = new CreateCviRequest();
@@ -92,17 +93,14 @@ public class TestService
         return userInfo.getAuthToken();
     }
 
-    private CompletableFuture<UserInfo> getUserInfo(Map<String, String> headers)
-    {
+    private CompletableFuture<HttpResponse<UserInfo>> getUserInfo(Map<String, String> headers) {
         return httpClient.<UserInfo>get("/api/user/info", headers, Types.getRawType(UserInfo.class));
     }
 
-    private CompletableFuture<Owner> getOwner(Map<String, String> headers) {
+    private CompletableFuture<HttpResponse<List<Owner>>> getOwner(Map<String, String> headers) {
         var listMyData = Types.newParameterizedType(List.class, Owner.class);
-        var response =
-            httpClient.<List<Owner>>get("/api/origin", headers, listMyData);
 
-        return response.thenApplyAsync(r -> (r).get(0));
+        return httpClient.<List<Owner>>get("/api/origin", headers, listMyData);
     }
 
     private CompletableFuture<Premises> createDestination(long ownerId, Map<String, String> headers) throws Exception {
@@ -154,7 +152,7 @@ public class TestService
         return httpClient.post("/api/documents", headers, request, Cvi.class).get();
     }
 
-    private static <T>  T processResponse(HttpResponse<T> response) throws ApiRequestException
+    private static <T> T processResponse(HttpResponse<T> response) throws ApiRequestException
     {
         if (response.getError() != null) {
             throw new ApiRequestException("API call failed to URL" + response.getUrl(), response.getError());
