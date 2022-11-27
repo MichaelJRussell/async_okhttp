@@ -4,9 +4,11 @@ import com.squareup.moshi.Types;
 import lombok.extern.slf4j.Slf4j;
 import mjr.async_okhttp.http.HttpClient;
 import mjr.async_okhttp.models.*;
+import org.springframework.asm.Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,16 +69,17 @@ public class TestService
         return response.thenApplyAsync(GetTokenResponse::getAuthToken);
     }
 
-    private CompletableFuture<UserInfo> getUserInfo(Map<String, String> headers) {
-        return httpClient.get("/api/user/info", headers, UserInfo.class);
+    private CompletableFuture<UserInfo> getUserInfo(Map<String, String> headers)
+    {
+        return httpClient.<UserInfo>get("/api/user/info", headers, Types.getRawType(UserInfo.class));
     }
 
     private CompletableFuture<Owner> getOwner(Map<String, String> headers) {
         var listMyData = Types.newParameterizedType(List.class, Owner.class);
         var response =
-            httpClient.get("/api/origin", headers, listMyData);
+            httpClient.<List<Owner>>get("/api/origin", headers, listMyData);
 
-        return response.thenApplyAsync(r -> ((List<Owner>)r).get(0));
+        return response.thenApplyAsync(r -> (r).get(0));
     }
 
     private CompletableFuture<Premises> createDestination(long ownerId, Map<String, String> headers) throws Exception {
