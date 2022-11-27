@@ -1,6 +1,7 @@
 package mjr.async_okhttp.controllers;
 
 import lombok.extern.slf4j.Slf4j;
+import mjr.async_okhttp.models.Cvi;
 import mjr.async_okhttp.services.TestService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,9 +15,7 @@ public class TestsController
     TestService testService;
 
     @GetMapping("/go")
-    public String go() throws Exception {
-        testService.doTest();
-
-        return "Ok";
+    public Cvi go() throws Exception {
+        return testService.doTest();
     }
 }

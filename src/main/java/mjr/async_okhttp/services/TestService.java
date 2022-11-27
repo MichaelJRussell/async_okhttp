@@ -7,7 +7,6 @@ import mjr.async_okhttp.models.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,22 +20,18 @@ public class TestService
     @Autowired
     HttpClient httpClient;
 
-    public void doTest() throws Exception {
+    public Cvi doTest() throws Exception {
         var token = getAuthToken().get();
-        Map<String, String> headersForGet = Map.of(
+        Map<String, String> acceptJsonHeaders = Map.of(
             "Accept", "application/json",
             "x-auth-token", token);
-        var userInfo = getUserInfo(headersForGet).get();
-        var owner = getOwner(headersForGet).get();
-        var destination = createDestination(owner.getId(), headersForGet).get();
-        var animal = createAnimal(owner.getId(), headersForGet).get();
-
-        log.info("Token: " + token);
-        log.info("User info: " + userInfo);
-        log.info("Owner id: " + owner.getId() + ", Prem: " + owner.getPrimaryPremises());
-        log.info("Destination: " + destination);
-        log.info("Animal" + animal);
-
+        Map<String, String> contentJsonHeaders = Map.of(
+            "Content-Type", "application/json",
+            "x-auth-token", token);
+        var userInfo = getUserInfo(acceptJsonHeaders).get();
+        var owner = getOwner(acceptJsonHeaders).get();
+        var destination = createDestination(owner.getId(), contentJsonHeaders).get();
+        var animal = createAnimal(owner.getId(), contentJsonHeaders).get();
         var cviRequest = new CreateCviRequest();
         var animals = List.of(new IdEntity(animal.getId()));
 
@@ -53,9 +48,11 @@ public class TestService
         cviRequest.setOrigin(new IdEntity(owner.getId()));
         cviRequest.setOriginPremises(new IdEntity(owner.getPrimaryPremises().getId()));
 
-        var cvi = createCviDraft(cviRequest, headersForGet).get();
+        var cvi = createCviDraft(cviRequest, contentJsonHeaders).get();
 
         log.info("CVI: " + cvi);
+
+        return cvi;
     }
 
     private CompletableFuture<String> getAuthToken() throws Exception {
@@ -75,7 +72,7 @@ public class TestService
     }
 
     private CompletableFuture<Owner> getOwner(Map<String, String> headers) {
-        Type listMyData = Types.newParameterizedType(List.class, Owner.class);
+        var listMyData = Types.newParameterizedType(List.class, Owner.class);
         var response =
             httpClient.get("/api/origin", headers, listMyData);
 
