@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Response;
-import okhttp3.ResponseBody;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -14,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
 @Slf4j
 public class ClassFutureCallback<T> implements Callback {
     private static final Moshi MOSHI = new Moshi.Builder().build();
-    private final CompletableFuture<T> future = new CompletableFuture<>();
+    private final CompletableFuture<HttpResponse<T>> future = new CompletableFuture<>();
     private final Class<T> responseType;
 
     public ClassFutureCallback(Class<T> responseType) {
@@ -30,45 +29,39 @@ public class ClassFutureCallback<T> implements Callback {
     @Override
     public void onResponse(@NotNull Call call, @NotNull Response response) throws IOException
     {
+        String body = response.body() == null ? null : response.body().string();
+
+        response.body().close();
+
         if (!response.isSuccessful()) {
-            var ex = new IOException(String.format(
+            var error = String.format(
                 "Unexpected code from url %s: %s",
                 call.request().url(),
-                response));
+                response);
 
-            log.error(response.body().string());
-
-            future.completeExceptionally(ex);
+            log.error(error + ": " + body);
         }
 
-        var body = response.body();
-        T responseObj = getResponseObject(body, responseType);
+        T responseObj = getResponseContent(body, responseType);
+        var httpResponse = new HttpResponse<>(response.code(), response.request().url().encodedPath(), responseObj);
 
-        future.complete(responseObj);
+        future.complete(httpResponse);
     }
 
-    public CompletableFuture<T> getFuture() {
+    public CompletableFuture<HttpResponse<T>> getFuture() {
         return this.future;
     }
 
-    public static <T> T getResponseObject(ResponseBody body, Class<T> responseType) {
+    private static <T> T getResponseContent(String body, Class<T> responseType) {
         T responseObj = null;
 
-        if (responseType != null && body != null) {
-            String bodyString = null;
-
+        if (responseType != null && body != null && body.length() > 0) {
             try {
-                bodyString = body.string();
-
                 var adapter = MOSHI.adapter(responseType);
 
-                responseObj = adapter.fromJson(bodyString);
+                responseObj = adapter.fromJson(body);
             } catch (Exception ex) {
-                if (bodyString == null) {
-                    log.error("Error reading body text from response", ex);
-                } else {
-                    log.error("Error while deserializing JSON body:\n" + bodyString, ex);
-                }
+                log.error("Error while deserializing JSON body:\n" + body, ex);
             }
         }
 

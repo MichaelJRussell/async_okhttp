@@ -2,13 +2,13 @@ package mjr.async_okhttp.services;
 
 import com.squareup.moshi.Types;
 import lombok.extern.slf4j.Slf4j;
+import mjr.async_okhttp.http.ApiRequestException;
 import mjr.async_okhttp.http.HttpClient;
+import mjr.async_okhttp.http.HttpResponse;
 import mjr.async_okhttp.models.*;
-import org.springframework.asm.Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,16 +22,38 @@ public class TestService
     @Autowired
     HttpClient httpClient;
 
-    public Cvi doTest() throws Exception {
-        var token = getAuthToken().get();
+    public HttpResponse<Cvi> doTest()
+    {
+        try {
+            return createCvi();
+        } catch (ApiRequestException ex) {
+            var error = ex.getError();
+
+            return new HttpResponse<>(error.getStatusCode(), null, error);
+        } catch (Exception ex) {
+            log.error("Error creating CVI", ex);
+
+            return new HttpResponse<>(500, null,
+                new mjr.async_okhttp.http.Error(500, "Error creating CVI"));
+        }
+    }
+
+    public HttpResponse<Cvi> createCvi() throws Exception {
+        var token = getAuthToken();
         Map<String, String> acceptJsonHeaders = Map.of(
             "Accept", "application/json",
             "x-auth-token", token);
         Map<String, String> contentJsonHeaders = Map.of(
             "Content-Type", "application/json",
             "x-auth-token", token);
-        var userInfo = getUserInfo(acceptJsonHeaders).get();
-        var owner = getOwner(acceptJsonHeaders).get();
+        var userInfoFuture = getUserInfo(acceptJsonHeaders);
+        var ownerFuture = getOwner(acceptJsonHeaders);
+
+        CompletableFuture.allOf(userInfoFuture, ownerFuture)
+            .get();
+
+        var userInfo = userInfoFuture.get();
+        var owner = ownerFuture.get();
         var destination = createDestination(owner.getId(), contentJsonHeaders).get();
         var animal = createAnimal(owner.getId(), contentJsonHeaders).get();
         var cviRequest = new CreateCviRequest();
@@ -50,14 +72,14 @@ public class TestService
         cviRequest.setOrigin(new IdEntity(owner.getId()));
         cviRequest.setOriginPremises(new IdEntity(owner.getPrimaryPremises().getId()));
 
-        var cvi = createCviDraft(cviRequest, contentJsonHeaders).get();
+        var cviResponse = createCviDraft(cviRequest, contentJsonHeaders);
 
-        log.info("CVI: " + cvi);
+        log.info("CVI: " + cviResponse.getContent());
 
-        return cvi;
+        return cviResponse;
     }
 
-    private CompletableFuture<String> getAuthToken() throws Exception {
+    private String getAuthToken() throws Exception {
         var loginBody = new Object() {
             public final String username = "vet1";
             public final String password = "pass1234";
@@ -65,8 +87,9 @@ public class TestService
 
         var response =
             httpClient.post("/api/gettoken", null, loginBody, GetTokenResponse.class);
+        var userInfo = processResponse(response.get());
 
-        return response.thenApplyAsync(GetTokenResponse::getAuthToken);
+        return userInfo.getAuthToken();
     }
 
     private CompletableFuture<UserInfo> getUserInfo(Map<String, String> headers)
@@ -94,7 +117,8 @@ public class TestService
         request.setState("FL");
         request.setPostalCode("32207");
 
-        return httpClient.post("/api/premises", headers, request, Premises.class);
+        return httpClient.post("/api/premises", headers, request, Premises.class)
+            .thenApply(HttpResponse::getContent);
     }
 
     private CompletableFuture<Animal> createAnimal(long ownerId, Map<String, String> headers) throws Exception {
@@ -115,10 +139,11 @@ public class TestService
         request.setRemarks("Is a very good boy");
         request.setSpecies("Canine");
 
-        return httpClient.post("/api/animal", headers, request, Animal.class);
+        return httpClient.post("/api/animal", headers, request, Animal.class)
+            .thenApply(HttpResponse::getContent);
     }
 
-    private CompletableFuture<Cvi> createCviDraft(CreateCviRequest request, Map<String, String> headers) throws Exception {
+    private HttpResponse<Cvi> createCviDraft(CreateCviRequest request, Map<String, String> headers) throws Exception {
         request.setType("CVI");
         request.setCarrierType("Automobile");
         request.setHeadCount(1);
@@ -126,6 +151,15 @@ public class TestService
         request.setPurposeOfMovement("Circus");
         request.setSpecies("Canine");
 
-        return httpClient.post("/api/documents", headers, request, Cvi.class);
+        return httpClient.post("/api/documents", headers, request, Cvi.class).get();
+    }
+
+    private static <T>  T processResponse(HttpResponse<T> response) throws ApiRequestException
+    {
+        if (response.getError() != null) {
+            throw new ApiRequestException("API call failed to URL" + response.getUrl(), response.getError());
+        }
+
+        return response.getContent();
     }
 }

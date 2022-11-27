@@ -33,7 +33,7 @@ public class HttpClient
         return performCall(call, responseType);
     }
 
-    public <T> CompletableFuture<T> post(String url, Map<String, String> headers, Object body, Class<T> responseType)
+    public <T> CompletableFuture<HttpResponse<T>> post(String url, Map<String, String> headers, Object body, Class<T> responseType)
         throws Exception
     {
         Request request;
@@ -59,7 +59,7 @@ public class HttpClient
         return performCall(call, responseType);
     }
 
-    private <T> CompletableFuture<T> performCall(Call call, Class<T> responseType) {
+    private <T> CompletableFuture<HttpResponse<T>> performCall(Call call, Class<T> responseType) {
         var callback = new ClassFutureCallback<T>(responseType);
 
         call.enqueue(callback);
