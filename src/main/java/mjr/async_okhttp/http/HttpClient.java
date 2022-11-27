@@ -2,13 +2,10 @@ package mjr.async_okhttp.http;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.squareup.moshi.Moshi;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -18,7 +15,6 @@ import java.util.concurrent.CompletableFuture;
 public class HttpClient
 {
     private static final String BASE_URL = "http://localhost:8080/gvl2";
-    private static final Moshi MOSHI = new Moshi.Builder().build();
     private final OkHttpClient client = new OkHttpClient();
 
     public <T> CompletableFuture<HttpResponse<T>> get(String url, Map<String, String> headers, Type responseType) {
