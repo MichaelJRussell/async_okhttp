@@ -55,6 +55,42 @@ public class HttpClient
         return performCall(call, responseType);
     }
 
+    public CompletableFuture<HttpResponse<String>> postForm(
+        String url, Map<String, String> headers, Map<String, String> body)
+        throws Exception
+    {
+        Request request;
+
+        try {
+            var requestBuilder = new Request.Builder()
+                .url(BASE_URL + url);
+            var formBodyBuilder = new FormBody.Builder();
+
+            body.forEach(formBodyBuilder::add);
+
+            applyHeaders(requestBuilder, headers);
+            requestBuilder.post(formBodyBuilder.build());
+
+            request = requestBuilder.build();
+        } catch (Exception ex) {
+            log.error("Error building HTTP request", ex);
+
+            throw new Exception("Error building HTTP request", ex);
+        }
+
+        var call = client.newCall(request);
+
+        return performCall(call);
+    }
+
+    private CompletableFuture<HttpResponse<String>> performCall(Call call) {
+        var callback = new StringFutureCallback();
+
+        call.enqueue(callback);
+
+        return callback.getFuture();
+    }
+
     private <T> CompletableFuture<HttpResponse<T>> performCall(Call call, Class<T> responseType) {
         var callback = new ClassFutureCallback<T>(responseType);
 

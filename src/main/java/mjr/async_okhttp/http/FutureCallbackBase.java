@@ -41,6 +41,8 @@ public abstract class FutureCallbackBase<T> implements Callback
         T responseObj = getResponseContent(body);
         var httpResponse = new HttpResponse<>(response.code(), response.request().url().encodedPath(), responseObj);
 
+        response.headers().forEach(pair -> httpResponse.addHeader(pair.component1(), pair.component2()));
+
         future.complete(httpResponse);
     }
 

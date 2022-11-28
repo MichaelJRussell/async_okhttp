@@ -11,10 +11,11 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Component
@@ -39,7 +40,43 @@ public class TestService
         }
     }
 
-    public HttpResponse<Cvi> createCvi() throws Exception {
+    public String doPost() throws Exception
+    {
+        var loginBody = Map.of(
+            "username", "vet1",
+            "password", "pass1234"
+        );
+        var headers = Map.of(
+            "Content-Type", "application/x-www-form-urlencoded",
+            "Accept", "text/html,application/xhtml+xml,application/xml,*.*"
+        );
+
+        var response =
+            httpClient.postForm("/login/authenticate", headers, loginBody)
+                .get();
+
+        // Status code for the form post is going to indicate success, so we need to check something else;
+        // in the case of our GSP login, a failure redirects to another redirect page.
+        if (response.getContent().contains("Redirecting you...")) {
+            throw new ApiRequestException("Failed to log in through form");
+        }
+
+        var responseHeaders = response.getHeaders();
+        String token = null;
+
+        for (Map.Entry<String, String> entry : responseHeaders.entrySet()) {
+            if (Objects.equals(entry.getKey(), "Set-Cookie")) {
+                if (entry.getValue().startsWith("JSESSION")) {
+                    token = entry.getValue();
+                    break;
+                }
+            }
+        }
+
+        return token;
+    }
+
+    private HttpResponse<Cvi> createCvi() throws Exception {
         var token = getAuthToken();
         Map<String, String> acceptJsonHeaders = Map.of(
             "Accept", "application/json",
@@ -88,9 +125,9 @@ public class TestService
 
         var response =
             httpClient.post("/api/gettoken", null, loginBody, GetTokenResponse.class);
-        var userInfo = processResponse(response.get());
+        var tokenResponse = processResponse(response.get());
 
-        return userInfo.getAuthToken();
+        return tokenResponse.getAuthToken();
     }
 
     private CompletableFuture<HttpResponse<UserInfo>> getUserInfo(Map<String, String> headers) {
